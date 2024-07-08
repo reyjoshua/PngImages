@@ -1,0 +1,59 @@
+using System.Windows;
+using System.Windows.Interop;
+
+namespace WpfApp
+{
+    public partial class MainWindow : Window
+    {
+        public MainWindow()
+        {
+            InitializeComponent();
+        }
+
+        private void ToggleMaximizeButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (this.WindowState == WindowState.Maximized)
+            {
+                this.WindowState = WindowState.Normal;
+            }
+            else
+            {
+                MaximizeWithoutTaskbar();
+            }
+        }
+
+        private void MaximizeWithoutTaskbar()
+        {
+            var screen = System.Windows.Forms.Screen.FromHandle(new WindowInteropHelper(this).Handle);
+            var workingArea = screen.WorkingArea;
+
+            this.WindowState = WindowState.Normal; // Ensure the window is not maximized before resizing
+            this.Top = workingArea.Top;
+            this.Left = workingArea.Left;
+            this.Width = workingArea.Width;
+            this.Height = workingArea.Height;
+        }
+
+        private void TitleBar_MouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        {
+            if (e.ClickCount == 2)
+            {
+                // Double-click to maximize/restore
+                if (this.WindowState == WindowState.Maximized)
+                {
+                    this.WindowState = WindowState.Normal;
+                }
+                else
+                {
+                    MaximizeWithoutTaskbar();
+                }
+            }
+            else
+            {
+                // Drag the window
+                this.DragMove();
+            }
+        }
+    }
+}
+
