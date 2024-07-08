@@ -1,10 +1,15 @@
+using System;
+using System.Runtime.InteropServices;
 using System.Windows;
+using System.Windows.Input;
 using System.Windows.Interop;
 
 namespace WpfApp
 {
     public partial class MainWindow : Window
     {
+        private Rect _restoreBounds;
+
         public MainWindow()
         {
             InitializeComponent();
@@ -12,48 +17,93 @@ namespace WpfApp
 
         private void ToggleMaximizeButton_Click(object sender, RoutedEventArgs e)
         {
-            if (this.WindowState == WindowState.Maximized)
+            if (this.WindowState == WindowState.Normal)
             {
-                this.WindowState = WindowState.Normal;
+                SaveRestoreBounds();
+                MaximizeWithoutTaskbar();
             }
             else
             {
-                MaximizeWithoutTaskbar();
+                RestoreWindow();
             }
+        }
+
+        private void SaveRestoreBounds()
+        {
+            _restoreBounds = new Rect(this.Left, this.Top, this.Width, this.Height);
+        }
+
+        private void RestoreWindow()
+        {
+            this.WindowState = WindowState.Normal;
+            this.Left = _restoreBounds.Left;
+            this.Top = _restoreBounds.Top;
+            this.Width = _restoreBounds.Width;
+            this.Height = _restoreBounds.Height;
         }
 
         private void MaximizeWithoutTaskbar()
         {
-            var screen = System.Windows.Forms.Screen.FromHandle(new WindowInteropHelper(this).Handle);
-            var workingArea = screen.WorkingArea;
+            IntPtr hWnd = new WindowInteropHelper(this).Handle;
+            IntPtr hMonitor = MonitorFromWindow(hWnd, MONITOR_DEFAULTTONEAREST);
+            MONITORINFO monitorInfo = new MONITORINFO();
+            monitorInfo.cbSize = Marshal.SizeOf(monitorInfo);
+            GetMonitorInfo(hMonitor, ref monitorInfo);
+
+            RECT workArea = monitorInfo.rcWork;
 
             this.WindowState = WindowState.Normal; // Ensure the window is not maximized before resizing
-            this.Top = workingArea.Top;
-            this.Left = workingArea.Left;
-            this.Width = workingArea.Width;
-            this.Height = workingArea.Height;
+            this.Top = workArea.Top;
+            this.Left = workArea.Left;
+            this.Width = workArea.Right - workArea.Left;
+            this.Height = workArea.Bottom - workArea.Top;
         }
 
-        private void TitleBar_MouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        private void TitleBar_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
             if (e.ClickCount == 2)
             {
-                // Double-click to maximize/restore
-                if (this.WindowState == WindowState.Maximized)
+                if (this.WindowState == WindowState.Normal)
                 {
-                    this.WindowState = WindowState.Normal;
+                    SaveRestoreBounds();
+                    MaximizeWithoutTaskbar();
                 }
                 else
                 {
-                    MaximizeWithoutTaskbar();
+                    RestoreWindow();
                 }
             }
             else
             {
-                // Drag the window
                 this.DragMove();
             }
         }
+
+        // P/Invoke declarations
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Auto)]
+        public class MONITORINFO
+        {
+            public int cbSize;
+            public RECT rcMonitor;
+            public RECT rcWork;
+            public int dwFlags;
+        }
+
+        [StructLayout(LayoutKind.Sequential, Pack = 0)]
+        public struct RECT
+        {
+            public int Left;
+            public int Top;
+            public int Right;
+            public int Bottom;
+        }
+
+        private const int MONITOR_DEFAULTTONEAREST = 0x00000002;
+
+        [DllImport("user32.dll", CharSet = CharSet.Auto)]
+        private static extern bool GetMonitorInfo(IntPtr hMonitor, ref MONITORINFO lpmi);
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr MonitorFromWindow(IntPtr hwnd, uint dwFlags);
     }
 }
-
